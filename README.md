@@ -276,13 +276,6 @@ flake8 cohort_system.py
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
-
-### Documentation
-- [API Reference](docs/api.md)
-- [Advanced Analytics Guide](docs/analytics.md)
-- [Marketing Playbook](docs/marketing-playbook.md)
-
 ### Getting Help
 - **Issues**: [GitHub Issues](https://github.com/yourusername/user-cohort-system/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/user-cohort-system/discussions)
@@ -293,12 +286,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built for marketing teams who need actionable customer insights
 - Inspired by best practices from leading e-commerce platforms
 - Optimized for Indian market dynamics and user behaviors
-
-## 📞 Contact
-
-**Project Maintainer**: Your Name  
-**Email**: your.email@company.com  
-**LinkedIn**: [Your LinkedIn Profile](https://linkedin.com/in/yourprofile)
 
 ---
 
