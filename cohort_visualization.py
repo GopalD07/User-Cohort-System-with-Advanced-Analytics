@@ -4,17 +4,7 @@ from datetime import datetime, timedelta
 import random
 from typing import List, Dict, Any, Set, Optional
 import os
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import warnings
-warnings.filterwarnings('ignore')
 
-# Set style for better looking plots
-plt.style.use('seaborn-v0_8')
-sns.set_palette("husl")
 
 class UserCohortSystem:
     def __init__(self, n_users: int = 5000, seed: Optional[int] = 42):
@@ -702,4 +692,145 @@ class UserCohortSystem:
         except Exception as e:
             print(f"Error exporting to Excel: {e}")
             # Fallback to single CSV that contains summary of cohorts (because CSV cannot have multiple sheets)
-            print(f"Cohort export completed successfully: {filename}")
+            fallback_filename = filename.replace('.xlsx', '.csv')
+            try:
+                cohort_summary_df.to_csv(fallback_filename, index=False)
+                print(f"✓ Fallback: Exported cohorts summary to CSV file: {fallback_filename}")
+                return fallback_filename
+            except Exception as e2:
+                print(f"Fallback also failed: {e2}")
+                raise
+
+    def print_data_insights(self):
+        print("\n" + "=" * 80)
+        print("DATA INSIGHTS")
+        print("=" * 80)
+        print(f"Total Events: {len(self.user_events):,}")
+        print(f"Unique Users: {self.user_events['user_id'].nunique():,}")
+        print(f"User Profiles Generated: {len(self.user_profiles):,}")
+        if not self.user_events.empty:
+            print(
+                f"Date Range: {self.user_events['timestamp'].min().strftime('%Y-%m-%d')} to {self.user_events['timestamp'].max().strftime('%Y-%m-%d')}"
+            )
+
+        print("\nEvent Distribution:")
+        event_counts = self.user_events["event"].value_counts()
+        for event, count in event_counts.items():
+            print(f"  {event}: {count:,}")
+
+        cart_events = self.user_events[self.user_events["event"] == "cart_added"]
+        if len(cart_events) > 0:
+            print(f"\nCart Statistics:")
+            print(f"  Total Cart Events: {len(cart_events):,}")
+            print(f"  Average Cart Value: ₹{cart_events['price'].mean():.2f}")
+            print(f"  Max Cart Value: ₹{cart_events['price'].max():.2f}")
+            print(f"  Min Cart Value: ₹{cart_events['price'].min():.2f}")
+
+        high_value_carts = cart_events[cart_events["price"] >= 3000]
+        print(f"  High Value Carts (≥₹3000): {len(high_value_carts):,}")
+        print(f"  Users with High Value Carts: {high_value_carts['user_id'].nunique():,}")
+
+        # User profile insights
+        print(f"\nUser Profile Distribution:")
+        print(f"  Cities: {', '.join(self.user_profiles['city'].value_counts().head().index.tolist())}")
+        print(f"  Age Groups: {dict(self.user_profiles['age_group'].value_counts())}")
+        print(f"  Gender Distribution: {dict(self.user_profiles['gender'].value_counts())}")
+
+    def print_cohort_summary(self, debug: bool = False):
+        print("=" * 80)
+        print("USER COHORT ANALYSIS SUMMARY")
+        print("=" * 80)
+        summary = self.analyze_cohorts(debug=debug)
+        if summary.empty:
+            print("No active cohorts found.")
+            return
+        print(f"\nTotal Active Cohorts: {len(summary)}")
+        print(f"Total Users Across All Cohorts: {summary['user_count'].sum():,}")
+        print(f"Average Cohort Size: {summary['user_count'].mean():.0f}")
+
+        print("\n" + "-" * 80)
+        print("COHORT DETAILS:")
+        print("-" * 80)
+        for _, row in summary.iterrows():
+            print(f"\nCohort #{row['cohort_id']}: {row['cohort_name']}")
+            print(f"  Description: {row['description']}")
+            print(f"  Users: {row['user_count']:,}")
+            print(f"  Created: {row['created_date']}")
+            print(f"  Conditions: {row['conditions_count']}")
+
+        print("\n" + "=" * 80)
+
+
+def main():
+    print("Initializing User Cohort System...")
+    system = UserCohortSystem(n_users=2000, seed=123)  # use fewer for quick demo
+
+    # Show data insights first
+    system.print_data_insights()
+
+    print("\nGenerating cohort analysis...")
+    system.print_cohort_summary(debug=True)
+
+    # Create simple test cohorts
+    simple_conditions = [
+        {
+            "include": True,
+            "action": "cart_added",
+            "operation": "count",
+            "property": "events",
+            "condition": ">=",
+            "value": 1,
+            "timeframe": 30,
+            "logic": None,
+        }
+    ]
+    system.create_cohort("Cart Users", "Users who added items to cart in last 30 days", simple_conditions)
+
+    view_conditions = [
+        {
+            "include": True,
+            "action": "PDP_view",
+            "operation": "count",
+            "property": "events",
+            "condition": ">=",
+            "value": 1,
+            "timeframe": 30,
+            "logic": None,
+        }
+    ]
+    system.create_cohort("Product Viewers", "Users who viewed products in last 30 days", view_conditions)
+
+    print("\nUpdated cohort analysis:")
+    system.print_cohort_summary()
+
+    # Export the largest cohort if exists (the export now creates one sheet per cohort inside the Excel file)
+    summary = system.analyze_cohorts()
+    if not summary.empty:
+        largest_cohort_id = int(summary.loc[summary["user_count"].idxmax(), "cohort_id"])
+        print("\n" + "=" * 80)
+        print("EXPORTING COHORTS TO EXCEL (one sheet per cohort)...")
+        print("=" * 80)
+        filename = system.export_cohort_users(largest_cohort_id)
+        print(f"Exported cohort users to: {filename}")
+
+        if os.path.exists(filename):
+            # Show a preview of sheets inside the file (if possible)
+            try:
+                excel_file = pd.ExcelFile(filename)
+                print(f"\nExcel file contains {len(excel_file.sheet_names)} sheets:")
+                for sheet in excel_file.sheet_names:
+                    print(f"  - {sheet}")
+                # show first few rows of the largest cohort sheet if present
+                target_cohort = next((c for c in system.cohorts if c["id"] == largest_cohort_id), None)
+                if target_cohort:
+                    target_sheet = system._safe_sheet_name(f"Cohort_{target_cohort['id']}_{target_cohort['name']}")
+                    if target_sheet in excel_file.sheet_names:
+                        sample_data = pd.read_excel(filename, sheet_name=target_sheet)
+                        print(f"\nSample exported Excel data for '{target_cohort['name']}' ({len(sample_data)} users):")
+                        print(sample_data.head())
+            except Exception as e:
+                print(f"Could not preview Excel file: {e}")
+
+
+if __name__ == "__main__":
+    main()
