@@ -702,4 +702,4 @@ class UserCohortSystem:
         except Exception as e:
             print(f"Error exporting to Excel: {e}")
             # Fallback to single CSV that contains summary of cohorts (because CSV cannot have multiple sheets)
-            fallback_filename = filename.replace('.
+            print(f"Cohort export completed successfully: {filename}")
